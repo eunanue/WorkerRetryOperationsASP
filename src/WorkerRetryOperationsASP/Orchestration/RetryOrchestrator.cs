@@ -12,6 +12,7 @@ public sealed class RetryOrchestrator(
     ICorrelationService correlationService,
     IStpWebhookInserter stpWebhookInserter,
     IWebhookRetryRepository webhookRetryRepository,
+    IWebhookItravelStpRepository webhookItravelStpRepository,
     ILogger<RetryOrchestrator> logger) : IRetryOrchestrator
 {
     public async Task RunOnceAsync(CancellationToken ct)
@@ -33,6 +34,7 @@ public sealed class RetryOrchestrator(
         var retried = 0;
         var skipped = 0;
         var failedAgain = 0;
+        var alreadyInTarget = 0;
 
         foreach (var item in pending)
         {
@@ -42,6 +44,19 @@ public sealed class RetryOrchestrator(
                 if (await webhookRetryRepository.ExistsAsync(item.CveRastreo, ct))
                 {
                     skipped++;
+                    continue;
+                }
+
+                if (await webhookItravelStpRepository.ExistsAsync(item.CveRastreo, ct))
+                {
+                    // El insert original sí se aplicó del lado del servidor pese al timeout
+                    // logueado por el middleware: no se llama al SP de nuevo (evita duplicar
+                    // la fila, el índice sobre RequestId en webhooks_itravel_stp no es único).
+                    await webhookRetryRepository.InsertAsync(item.CveRastreo, ct);
+                    alreadyInTarget++;
+                    logger.LogInformation(
+                        "cve_rastreo={CveRastreo} ya existe en webhooks_itravel_stp; no se reintenta el insert, solo se registra en reintentos_asp.",
+                        item.CveRastreo);
                     continue;
                 }
 
@@ -64,7 +79,8 @@ public sealed class RetryOrchestrator(
             }
         }
 
-        logger.LogInformation("Corrida finalizada: {Retried} reintentados con éxito, {Skipped} ya registrados previamente, {FailedAgain} fallaron nuevamente.",
-            retried, skipped, failedAgain);
+        logger.LogInformation(
+            "Corrida finalizada: {Retried} reintentados con éxito, {AlreadyInTarget} ya existían en webhooks_itravel_stp, {Skipped} ya registrados previamente, {FailedAgain} fallaron nuevamente.",
+            retried, alreadyInTarget, skipped, failedAgain);
     }
 }

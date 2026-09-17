@@ -15,6 +15,7 @@ builder.Services.AddSingleton<ILogFileLocator, DailyLogFileLocator>();
 builder.Services.AddSingleton<ILogParserService, NotifyLogParserService>();
 builder.Services.AddSingleton<ICorrelationService, CorrelationService>();
 builder.Services.AddScoped<IWebhookRetryRepository, WebhookRetryRepository>();
+builder.Services.AddScoped<IWebhookItravelStpRepository, WebhookItravelStpRepository>();
 builder.Services.AddScoped<IStpWebhookInserter, StpWebhookInserter>();
 builder.Services.AddScoped<IRetryOrchestrator, RetryOrchestrator>();
 builder.Services.AddScoped<IDryRunReporter, DryRunReporter>();
