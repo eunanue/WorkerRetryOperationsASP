@@ -7,7 +7,6 @@
     <RootNamespace>WorkerRetryOperationsASP</RootNamespace>
     <UserSecretsId>e1c2f5a1-4d2b-4d0a-9b3d-3a7f7e3c4b1a</UserSecretsId>
     <UseWindowsService>true</UseWindowsService>
-    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
