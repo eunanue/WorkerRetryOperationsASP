@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using WorkerRetryOperationsASP.Configuration;
 using WorkerRetryOperationsASP.Correlation;
 using WorkerRetryOperationsASP.Data;
 using WorkerRetryOperationsASP.Io;
@@ -13,8 +15,11 @@ public sealed class RetryOrchestrator(
     IStpWebhookInserter stpWebhookInserter,
     IWebhookRetryRepository webhookRetryRepository,
     IWebhookItravelStpRepository webhookItravelStpRepository,
+    IOptions<RetryWorkerOptions> options,
     ILogger<RetryOrchestrator> logger) : IRetryOrchestrator
 {
+    private readonly RetryWorkerOptions _options = options.Value;
+
     public async Task RunOnceAsync(CancellationToken ct)
     {
         var filePath = logFileLocator.GetTodayLogFilePath();
@@ -29,7 +34,17 @@ public sealed class RetryOrchestrator(
             filePath, successes.Count, errors.Count);
 
         var pending = correlationService.Correlate(successes, errors);
-        logger.LogInformation("{PendingCount} candidatos a reintento tras correlacionar.", pending.Count);
+
+        if (!string.IsNullOrWhiteSpace(_options.OnlyCveRastreo))
+        {
+            pending = pending.Where(p => p.CveRastreo == _options.OnlyCveRastreo).ToList();
+            logger.LogInformation("Filtro OnlyCveRastreo={CveRastreo} activo: {PendingCount} candidato(s) tras filtrar.",
+                _options.OnlyCveRastreo, pending.Count);
+        }
+        else
+        {
+            logger.LogInformation("{PendingCount} candidatos a reintento tras correlacionar.", pending.Count);
+        }
 
         var retried = 0;
         var skipped = 0;

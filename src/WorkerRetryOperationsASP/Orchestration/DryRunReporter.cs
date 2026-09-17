@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using WorkerRetryOperationsASP.Configuration;
 using WorkerRetryOperationsASP.Correlation;
 using WorkerRetryOperationsASP.Io;
 using WorkerRetryOperationsASP.Parsing;
@@ -15,8 +17,11 @@ public sealed class DryRunReporter(
     ILogFileLocator logFileLocator,
     ILogParserService logParserService,
     ICorrelationService correlationService,
+    IOptions<RetryWorkerOptions> options,
     ILogger<DryRunReporter> logger) : IDryRunReporter
 {
+    private readonly RetryWorkerOptions _options = options.Value;
+
     public async Task RunOnceAsync(CancellationToken ct)
     {
         var filePath = logFileLocator.GetTodayLogFilePath();
@@ -28,6 +33,11 @@ public sealed class DryRunReporter(
 
         var (successes, errors) = await logParserService.ParseAsync(filePath, ct);
         var pending = correlationService.Correlate(successes, errors);
+
+        if (!string.IsNullOrWhiteSpace(_options.OnlyCveRastreo))
+        {
+            pending = pending.Where(p => p.CveRastreo == _options.OnlyCveRastreo).ToList();
+        }
 
         logger.LogInformation("[DRY RUN] Archivo analizado: {FilePath}", filePath);
         logger.LogInformation(

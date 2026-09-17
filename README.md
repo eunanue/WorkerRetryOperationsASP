@@ -61,6 +61,23 @@ El proceso parsea el log del día, correlaciona los candidatos y termina solo
 (no entra al loop de 1 hora). Sirve para validar el parseo/correlación antes
 de conectar contra una base de datos real.
 
+## Probar contra una base de datos real, de a un registro
+
+Para probar el flujo completo (SP + `reintentos_asp` + `webhooks_itravel_stp`)
+contra una base de datos real sin tocar de golpe todos los `cve_rastreo`
+pendientes del día, se puede combinar con `RetryWorker:OnlyCveRastreo` para
+limitar la corrida a uno solo:
+
+```powershell
+.\WorkerRetryOperationsASP.exe --RetryWorker:OnlyCveRastreo="CVE178966083953083C8E639"
+```
+
+Esto aplica tanto en modo real como en dry-run (se puede combinar con
+`--RetryWorker:DryRun=true` para ver primero los parámetros de ese único
+registro antes de ejecutarlo de verdad). Requiere tener configurada
+`ConnectionStrings:AspDb` cuando no se usa `DryRun=true`. El resto de los
+candidatos del día se ignoran por completo en esa corrida.
+
 ## Desplegar como Servicio de Windows
 
 1. Publicar:

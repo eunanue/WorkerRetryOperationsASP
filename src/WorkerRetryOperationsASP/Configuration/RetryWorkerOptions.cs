@@ -13,4 +13,12 @@ public sealed class RetryWorkerOptions
     /// SQL Server. Corre una sola vez y termina el proceso.
     /// </summary>
     public bool DryRun { get; set; } = false;
+
+    /// <summary>
+    /// Cuando está configurado, la corrida (real o dry-run) se limita a este
+    /// único cve_rastreo, ignorando el resto de los candidatos detectados en el
+    /// log. Útil para probar contra la base de datos de a un registro por vez
+    /// antes de dejar correr el worker contra todos los pendientes.
+    /// </summary>
+    public string? OnlyCveRastreo { get; set; }
 }
