@@ -94,6 +94,13 @@ public sealed partial class NotifyLogParserService(ILogger<NotifyLogParserServic
             return;
         }
 
+        var eventMatch = SuccessEventTypePattern().Match(json["Message"]?.Value<string>() ?? string.Empty);
+        if (!eventMatch.Success)
+        {
+            logger.LogWarning("Línea {LineNumber}: no se pudo extraer el EventType del Message de la línea SUCCESS, se descarta.", lineNumber);
+            return;
+        }
+
         if (!PayloadNotifyNormalizer.TryNormalize(json, out var payloadJson, out var cveRastreo))
         {
             logger.LogWarning("Línea {LineNumber}: no se pudo extraer cveRastreo/PayloadNotify de la línea SUCCESS, se descarta.", lineNumber);
@@ -104,6 +111,7 @@ public sealed partial class NotifyLogParserService(ILogger<NotifyLogParserServic
         {
             LineNumber = lineNumber,
             Timestamp = timestamp,
+            EventType = eventMatch.Groups["eventType"].Value,
             CveRastreo = cveRastreo,
             PayloadJson = payloadJson
         });
@@ -111,6 +119,10 @@ public sealed partial class NotifyLogParserService(ILogger<NotifyLogParserServic
 
     [GeneratedRegex(@"^(?<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(?<level>SUCCESS|ERROR)\] (?<rest>.*)$")]
     private static partial Regex LinePattern();
+
+    // Message de las líneas SUCCESS: "Webhook {EventType} recibido exitosamente".
+    [GeneratedRegex(@"^Webhook (?<eventType>\S+) recibido exitosamente")]
+    private static partial Regex SuccessEventTypePattern();
 
     [GeneratedRegex(@"^Error ProcessSTPWebhook - EventType: (?<eventType>.*?) - RequestId: (?<requestId>.*?) - Error: (?<error>.*)$")]
     private static partial Regex ProcessSTPWebhookErrorPattern();

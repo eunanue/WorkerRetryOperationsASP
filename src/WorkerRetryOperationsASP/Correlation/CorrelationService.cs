@@ -7,18 +7,20 @@ public sealed class CorrelationService(ILogger<CorrelationService> logger) : ICo
 {
     public IReadOnlyList<PendingRetryItem> Correlate(IReadOnlyList<LogSuccessRecord> successes, IReadOnlyList<LogErrorRecord> errors)
     {
-        var byCveRastreo = successes
-            .GroupBy(s => s.CveRastreo)
+        // Un mismo RequestId/cveRastreo puede tener varios eventos con payloads distintos:
+        // el payload correcto se busca por (RequestId, EventType).
+        var byCveRastreoAndEvent = successes
+            .GroupBy(s => Key(s.CveRastreo, s.EventType))
             .ToDictionary(g => g.Key, g => g.OrderBy(s => s.LineNumber).ToList());
 
         var result = new List<PendingRetryItem>();
 
         foreach (var error in errors)
         {
-            if (!byCveRastreo.TryGetValue(error.RequestId, out var candidates))
+            if (!byCveRastreoAndEvent.TryGetValue(Key(error.RequestId, error.EventType), out var candidates))
             {
                 logger.LogWarning(
-                    "No se encontró SUCCESS correlacionado para RequestId={RequestId} EventType={EventType} (línea {LineNumber}); se omite este reintento.",
+                    "No se encontró SUCCESS correlacionado por RequestId y EventType para RequestId={RequestId} EventType={EventType} (línea {LineNumber}); se omite este reintento.",
                     error.RequestId, error.EventType, error.LineNumber);
                 continue;
             }
@@ -28,7 +30,7 @@ public sealed class CorrelationService(ILogger<CorrelationService> logger) : ICo
             if (match is null)
             {
                 logger.LogWarning(
-                    "No se encontró SUCCESS anterior al error para RequestId={RequestId} EventType={EventType} (línea {LineNumber}); se omite este reintento.",
+                    "No se encontró SUCCESS anterior al error (mismo RequestId y EventType) para RequestId={RequestId} EventType={EventType} (línea {LineNumber}); se omite este reintento.",
                     error.RequestId, error.EventType, error.LineNumber);
                 continue;
             }
@@ -45,4 +47,7 @@ public sealed class CorrelationService(ILogger<CorrelationService> logger) : ICo
 
         return result;
     }
+
+    private static string Key(string requestId, string eventType) =>
+        $"{requestId}\u001f{eventType.Trim().ToUpperInvariant()}";
 }
