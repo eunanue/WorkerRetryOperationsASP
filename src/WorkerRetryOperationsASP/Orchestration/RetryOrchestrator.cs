@@ -56,29 +56,30 @@ public sealed class RetryOrchestrator(
             ct.ThrowIfCancellationRequested();
             try
             {
-                if (await webhookRetryRepository.ExistsAsync(item.CveRastreo, ct))
+                if (await webhookRetryRepository.ExistsAsync(item.CveRastreo, item.EventType, ct))
                 {
                     skipped++;
                     continue;
                 }
 
-                if (await webhookItravelStpRepository.ExistsAsync(item.CveRastreo, ct))
+                if (await webhookItravelStpRepository.ExistsAsync(item.CveRastreo, item.EventType, ct))
                 {
                     // El insert original sí se aplicó del lado del servidor pese al timeout
                     // logueado por el middleware: no se llama al SP de nuevo (evita duplicar
                     // la fila, el índice sobre RequestId en webhooks_itravel_stp no es único).
-                    await webhookRetryRepository.InsertAsync(item.CveRastreo, ct);
+                    // La validación es por RequestId + event_type.
+                    await webhookRetryRepository.InsertAsync(item.CveRastreo, item.EventType, ct);
                     alreadyInTarget++;
                     logger.LogInformation(
-                        "cve_rastreo={CveRastreo} ya existe en webhooks_itravel_stp; no se reintenta el insert, solo se registra en reintentos_asp.",
-                        item.CveRastreo);
+                        "cve_rastreo={CveRastreo} EventType={EventType} ya existe en webhooks_itravel_stp; no se reintenta el insert, solo se registra en reintentos_asp.",
+                        item.CveRastreo, item.EventType);
                     continue;
                 }
 
                 var ok = await stpWebhookInserter.TryInsertAsync(item.CveRastreo, item.EventType, item.PayloadJson, ct);
                 if (ok)
                 {
-                    await webhookRetryRepository.InsertAsync(item.CveRastreo, ct);
+                    await webhookRetryRepository.InsertAsync(item.CveRastreo, item.EventType, ct);
                     retried++;
                     logger.LogInformation("Reintento exitoso para cve_rastreo={CveRastreo} EventType={EventType}.", item.CveRastreo, item.EventType);
                 }

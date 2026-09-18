@@ -10,12 +10,13 @@ public sealed class WebhookItravelStpRepository(IConfiguration configuration) : 
         ? throw new InvalidOperationException("Falta configurar ConnectionStrings:AspDb.")
         : configuration.GetConnectionString("AspDb")!;
 
-    public async Task<bool> ExistsAsync(string requestId, CancellationToken ct)
+    public async Task<bool> ExistsAsync(string requestId, string eventType, CancellationToken ct)
     {
         using var connection = new SqlConnection(_connectionString);
         using var command = new SqlCommand(
-            "SELECT TOP 1 1 FROM dbo.webhooks_itravel_stp WHERE RequestId = @RequestId", connection);
+            "SELECT TOP 1 1 FROM dbo.webhooks_itravel_stp WHERE RequestId = @RequestId AND event_type = @EventType", connection);
         command.Parameters.Add(new SqlParameter("@RequestId", SqlDbType.VarChar, 255) { Value = requestId });
+        command.Parameters.Add(new SqlParameter("@EventType", SqlDbType.NVarChar, 100) { Value = eventType });
 
         await connection.OpenAsync(ct);
         var result = await command.ExecuteScalarAsync(ct);
